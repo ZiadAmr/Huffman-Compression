@@ -9,7 +9,15 @@
 #include "node.h"
 #include "FileReader.h"
 
-void encode(std::string filename){
+struct Arguments
+{
+    bool encode = false;
+    bool decode = false;
+    std::string input_file;
+    std::string output_file;
+};
+
+void encode(std::string filename, std::string output_name){
     // read file and generate probabilites
     std::map<char, int> occurances;
     int total = 0;
@@ -53,7 +61,7 @@ void encode(std::string filename){
     std::map<char, std::string> map;
     inorderTraversal(head, "", map);
 
-    std::ofstream fout{"file.bin", std::ios::binary | std::ios::out};
+    std::ofstream fout{output_name, std::ios::binary | std::ios::out};
 
     // write the probabilities to the file
     //first element is an integer storing size of probabilities map
@@ -102,12 +110,12 @@ void encode(std::string filename){
     fout.close();
 
     double ifileSize = std::filesystem::file_size(filename);
-    double ofileSize = std::filesystem::file_size("file.bin");
+    double ofileSize = std::filesystem::file_size(output_name);
 
     std::cout << filename << " " << ifileSize << " To " << ofileSize << " : " << ofileSize / ifileSize << std::endl;
 }
 
-void decode(std::string filename){
+void decode(std::string filename, std::string output_name){
     if(std::ifstream file{filename, std::ios::binary | std::ios::in}){
         int mapSize;
         file.read(reinterpret_cast<char *>(&mapSize), sizeof(int));
@@ -143,7 +151,7 @@ void decode(std::string filename){
         }
 
         // traverse tree 
-        std::ofstream fout("output.txt", std::ios::out);
+        std::ofstream fout(output_name, std::ios::out);
         
         Node<char>* current = head;
 
@@ -163,18 +171,70 @@ void decode(std::string filename){
     }
 }
 
-int main(){
-    encode("cantrbry/alice29.txt");
-    decode("file.bin");
-    encode("cantrbry/asyoulik.txt");
-    decode("file.bin");
-    encode("cantrbry/cp.html");
-    encode("cantrbry/fields.c");
-    encode("cantrbry/grammar.lsp");
-    encode("cantrbry/kennedy.xls");
-    encode("cantrbry/grammar.lsp");
-    encode("cantrbry/plrabn12.txt");
-    encode("cantrbry/ptt5");
-    encode("cantrbry/sum");
-    encode("cantrbry/xargs.1");
+void print_usage(const char* program)
+{
+    std::cout << "Usage:\n"
+              << program << " -e|-d -i <input_file> -o <output_file>\n\n"
+              << "Options:\n"
+              << "  -e              Encode mode\n"
+              << "  -d              Decode mode\n"
+              << "  -i <file>      Input file\n"
+              << "  -o <file>      Output file\n";
+}
+
+bool parse_arguments(int argc, char* argv[], Arguments& args)
+{
+    if (argc < 6)
+        return false;
+
+    for (int i = 1; i < argc; i++)
+    {
+        std::string arg = argv[i];
+
+        if (arg == "-e")
+        {
+            args.encode = true;
+        }
+        else if (arg == "-d")
+        {
+            args.decode = true;
+        }
+        else if (arg == "-i" && i + 1 < argc)
+        {
+            args.input_file = argv[++i];
+        }
+        else if (arg == "-o" && i + 1 < argc)
+        {
+            args.output_file = argv[++i];
+        }
+        else
+        {
+            return false;
+        }
+    }
+
+    // Validation
+    if (args.encode == args.decode) // both true or both false
+        return false;
+
+    if (args.input_file.empty() || args.output_file.empty())
+        return false;
+
+    return true;
+}
+
+int main(int argc, char* argv[])
+{
+    Arguments args;
+
+    if (!parse_arguments(argc, argv, args))
+    {
+        print_usage(argv[0]);
+        return 1;
+    }
+
+    if(args.decode) decode(args.input_file, args.output_file);
+    else if(args.encode) encode(args.input_file, args.output_file);
+
+    return 0;
 }
